@@ -6,10 +6,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import random
-import numpy as np
 
 
+
+i = 0
 class MultiHeadAttention(nn.Module):
     def __init__(self, model_dim, num_heads, dropout=0.1):
         super(MultiHeadAttention, self).__init__()
@@ -31,12 +31,13 @@ class MultiHeadAttention(nn.Module):
         batch_size = key.size(0)
 
         # 线性变换
-        key = self.linear_k(key)
+        key = self.linear_k(key)    # torch.Size([1, 10, 512])  1:batch、10：序列最大长度、512：序列维度
         value = self.linear_v(value)
         query = self.linear_q(query)
-
+        # print("key:", key.shape)
         # 分割头部
-        key = key.view(batch_size * self.num_heads, -1, self.dim_per_head)
+        key = key.view(batch_size * self.num_heads, -1, self.dim_per_head)  # torch.Size([8, 10, 64])，8个head把序列维度分开
+        # print("key:", key.shape)
         value = value.view(batch_size * self.num_heads, -1, self.dim_per_head)
         query = query.view(batch_size * self.num_heads, -1, self.dim_per_head)
 
@@ -45,19 +46,24 @@ class MultiHeadAttention(nn.Module):
 
         # if attn_mask is not None:
         #     scores = scores.masked_fill_(attn_mask, -1e9)
-
+        # print("scores:", scores.shape)  # torch.Size([8, 10, 10])   10×10是因为每个q都要和每个key求相似度
+        # print(scores)
         attn = nn.Softmax(dim=-1)(scores)
         attn = self.dropout(attn)
-
+        # print("attn:", attn.shape)
+        # print(attn)
         # 加权平均
-        context = torch.bmm(attn, value)
+        context = torch.bmm(attn, value)    # attn:10×10 ;value：10×512
 
         # 合并头部
         context = context.view(batch_size, -1, self.dim_per_head * self.num_heads)
+        # print("context:", context.shape)
+        # print(context)
 
         # 线性变换
         output = self.linear_final(context)
-
+        # print("output+residual", (output + residual).shape)
+        # print(output + residual)
         return output + residual, attn
 
 class PositionalEncoding(nn.Module):
@@ -127,7 +133,11 @@ class Encoder(nn.Module):
         for layer in self.layers:
             outputs, attn = layer(outputs, self_attention_mask)
             attentions.append(attn)
-
+            # global i
+            # i = i + 1
+            # print(i)
+            # print(outputs.shape)
+            # print(attentions)
         return outputs, attentions
 
 class DecoderLayer(nn.Module):
@@ -194,6 +204,7 @@ def padding_mask(seq_q, seq_k):
     # 生成一个掩码矩阵，用于屏蔽掉填充的元素
     len_q = seq_q.size(1)
     padding_mask = seq_k.eq(0).unsqueeze(1).expand(-1, len_q, -1)  # b x lq x lk
+    # print(padding_mask.shape)
     return padding_mask
 
 def subsequent_mask(size):
@@ -239,42 +250,42 @@ class Transformer(nn.Module):
         return output, enc_self_attn, dec_self_attn, ctx_attn
 
 # 辅助函数
-# def generate_sequence(batch_size, max_length, vocab_size):
-#     """生成随机的整数序列，用于模拟句子"""
-#     return torch.LongTensor(batch_size, max_length).random_(0, vocab_size)
 def generate_sequence(batch_size, max_length, vocab_size):
-    """
-    生成随机的整数序列，用于模拟句子。
-
-    参数:
-    - batch_size: 序列的批处理大小。
-    - max_length: 序列的最大长度。
-    - vocab_size: 词汇表大小。
-
-    返回:
-    - sequences_tensor: 一个二维张量，形状为 (batch_size, max_length)，其中每个序列的实际长度不同。
-    - lengths: 包含每个序列实际长度的一维张量。
-    """
-    sequences = []
-    lengths = []
-    for _ in range(batch_size):
-        # 随机生成每个序列的实际长度
-        length = torch.randint(1, max_length + 1, (1,)).item()
-
-        # 生成随机整数序列
-        sequence = torch.randint(0, vocab_size, (length,))
-
-        # 将序列填充到 max_length
-        padded_sequence = F.pad(sequence, (0, max_length - length), mode='constant', value=0)
-
-        sequences.append(padded_sequence)
-        lengths.append(length)
-
-    # 将序列列表转换为张量
-    sequences_tensor = torch.stack(sequences)
-    lengths_tensor = torch.tensor(lengths)
-
-    return sequences_tensor, lengths_tensor
+    """生成随机的整数序列，用于模拟句子"""
+    return torch.LongTensor(batch_size, max_length).random_(0, vocab_size)
+# def generate_sequence(batch_size, max_length, vocab_size):
+#     """
+#     生成随机的整数序列，用于模拟句子。
+#
+#     参数:
+#     - batch_size: 序列的批处理大小。
+#     - max_length: 序列的最大长度。
+#     - vocab_size: 词汇表大小。
+#
+#     返回:
+#     - sequences_tensor: 一个二维张量，形状为 (batch_size, max_length)，其中每个序列的实际长度不同。
+#     - lengths: 包含每个序列实际长度的一维张量。
+#     """
+#     sequences = []
+#     lengths = []
+#     for _ in range(batch_size):
+#         # 随机生成每个序列的实际长度
+#         length = torch.randint(1, max_length + 1, (1,)).item()
+#
+#         # 生成随机整数序列
+#         sequence = torch.randint(0, vocab_size, (length,))
+#
+#         # 将序列填充到 max_length
+#         padded_sequence = F.pad(sequence, (0, max_length - length), mode='constant', value=0)
+#
+#         sequences.append(padded_sequence)
+#         lengths.append(length)
+#
+#     # 将序列列表转换为张量
+#     sequences_tensor = torch.stack(sequences)
+#     lengths_tensor = torch.tensor(lengths)
+#
+#     return sequences_tensor, lengths_tensor
 
 def generate_lengths(batch_size, max_length):
     """生成随机的序列长度，确保每个序列长度不超过最大长度"""
@@ -282,7 +293,7 @@ def generate_lengths(batch_size, max_length):
 
 # 定义模型参数
 src_vocab_size = 10000  # 源语言词汇表大小
-src_max_len = 10       # 源序列最大长度
+src_max_len = 10       # 源序列最大长度   src_vocab_size与src_max_len相乘代表了表示词量的大小
 tgt_vocab_size = 9000  # 目标语言词汇表大小
 tgt_max_len = 12       # 目标序列最大长度
 num_layers = 6          # 编码器/解码器层数
@@ -292,12 +303,14 @@ ffn_dim = 2048          # 前馈网络中间层维度
 dropout = 0.1           # Dropout比率
 
 # 创建数据
-batch_size = 2      # 样本数
-src_seq ,src_len = generate_sequence(batch_size, src_max_len, src_vocab_size)
+batch_size = 1      # 样本数(词的个数)：词的个数每个词都可以从10000×10的词汇表中一一对应
+src_seq  = generate_sequence(batch_size, src_max_len, src_vocab_size)
 print("源语言序列", src_seq)
+src_len = generate_lengths(batch_size, src_max_len)
 print("每条源序列的实际长度", src_len)
-tgt_seq, tgt_len = generate_sequence(batch_size, tgt_max_len, tgt_vocab_size)
+tgt_seq = generate_sequence(batch_size, tgt_max_len, tgt_vocab_size)
 print("目标语言序列", tgt_seq)
+tgt_len = generate_lengths(batch_size, src_max_len)
 print("每条目标序列的实际长度", tgt_len)
 
 # 初始化模型
