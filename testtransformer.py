@@ -304,6 +304,7 @@ print("每条目标序列的实际长度", tgt_len)
 transformer = Transformer(src_vocab_size, src_max_len, tgt_vocab_size, tgt_max_len,
                           num_layers, model_dim, num_heads, ffn_dim, dropout)
 
+
 # 进行前向传播
 output, enc_self_attn, dec_self_attn, ctx_attn = transformer(src_seq, src_len, tgt_seq, tgt_len)
 
