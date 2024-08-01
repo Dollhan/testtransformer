@@ -183,7 +183,7 @@ class Decoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, inputs, inputs_len, encoder_outputs, context_attn_mask):
-        # 输入嵌入
+        # 输入嵌入hello
         outputs = self.embedding(inputs)
         outputs = self.dropout(self.positional_encoding(outputs))
 
